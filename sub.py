@@ -92,12 +92,12 @@ def main():
 
     uploaded_video = st.file_uploader("Choose a video...", type=['mp4', 'mov', 'avi', 'mkv'])
     if uploaded_video is not None:
-        video_file = NamedTemporaryFile(delete=False, suffix='.' + uploaded_video.name.split('.')[-1])
-        video_file.write(uploaded_video.getvalue())
-        video_file.close()
-        original_video_path = video_file.name
-        st.session_state['original_video_path'] = original_video_path
-        
+        if 'original_video_path' not in st.session_state:
+            video_file = NamedTemporaryFile(delete=False, suffix='.' + uploaded_video.name.split('.')[-1])
+            video_file.write(uploaded_video.getvalue())
+            video_file.close()
+            st.session_state['original_video_path'] = video_file.name
+        original_video_path = st.session_state['original_video_path']
         if 'transcription_done' not in st.session_state:
             if st.button('Transcribe Video'):
                 with st.spinner('Extracting audio and transcribing...'):
@@ -111,17 +111,18 @@ def main():
                     st.session_state['transcription_done'] = True
 
                 # Display video and subtitles side by side after transcription
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("Video")
-                    st.video(original_video_path)
-                with col2:
-                    st.subheader("Generated Subtitles")
-                    st.session_state['edited_subtitles'] = st.text_area("Edit the subtitles here:", value=st.session_state['subtitles'], height=550)
 
         # The rest of your main function here...
 
         if 'transcription_done' in st.session_state:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Video")
+                st.video(original_video_path)
+            with col2:
+                st.subheader("Generated Subtitles")
+                st.session_state['edited_subtitles'] = st.text_area("Edit the subtitles here:", value=st.session_state['subtitles'], height=550)
+
             edited_subtitles = st.session_state.get('edited_subtitles', '')  # Ensure variable is defined
             if st.button('Save Edited Subtitles'):
                 with NamedTemporaryFile(delete=False, mode='w', suffix='.srt') as subtitle_file:
