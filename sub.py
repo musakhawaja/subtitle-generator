@@ -13,7 +13,6 @@ import re
 from textwrap import wrap
 
 def parse_time(time_str):
-    """Converts a timestamp string to milliseconds."""
     hours, minutes, seconds_milliseconds = time_str.split(":")
     seconds, milliseconds = seconds_milliseconds.split(",")
     total_milliseconds = (int(hours) * 3600 + int(minutes) * 60 + int(seconds)) * 1000 + int(milliseconds)
@@ -21,7 +20,6 @@ def parse_time(time_str):
 
 
 def format_time(milliseconds):
-    """Converts milliseconds to a timestamp string."""
     hours = milliseconds // 3600000
     minutes = (milliseconds % 3600000) // 60000
     seconds = (milliseconds % 60000) // 1000
@@ -29,7 +27,6 @@ def format_time(milliseconds):
     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
 
 def adjust_timestamps(start_ms, end_ms, parts):
-    """Evenly splits the duration between start and end timestamps across the specified number of parts."""
     delta = (end_ms - start_ms) // parts
     timestamps = [(start_ms + i * delta, start_ms + (i + 1) * delta) for i in range(parts)]
     return timestamps
@@ -77,15 +74,47 @@ def transcribe_audio(audio_path):
         )
     return transcription_result
 
+def translate(srt):
+    completion = client.chat.completions.create(
+    model="gpt-4-0125-preview",
+    messages=[
+        {"role": "system", "content": f"Translate the text to french. Your final output must always be in french no matter the language of the text you're provided."},
+        {"role": "user", "content": srt}
+    ]
+)
+
+    result = completion.choices[0].message.content
+    return result
+
+from ffmpeg import Error as FFmpegError
+
+
 def embed_subtitles_in_video(video_path, subtitles):
     output_video_path = NamedTemporaryFile(delete=False, suffix='.mp4').name
-    (
-        ffmpeg
-        .input(video_path)
-        .output(output_video_path, vf='subtitles=' + subtitles)
-        .run(overwrite_output=True, quiet=True)
+    style_options = (
+        "FontName=verdana"
+        ",FontSize=10"
+        ",PrimaryColour=&H00FFFFFF"
+        ",Bold=-1"
+        ",MarginV=40"
     )
+    # fontfile_option = "fontfile=verdana.ttf"
+    subtitles_filter = f"subtitles='{subtitles}':force_style='{style_options}'"
+    print(subtitles_filter)
+    try:
+        (
+            ffmpeg
+            .input(video_path)
+            .output(output_video_path, vf=subtitles_filter)
+            .run(overwrite_output=True, quiet=False)  # Set quiet=False to see the output in case there's no error
+        )
+    except FFmpegError as e:
+        print("FFmpeg Error encountered:")
+        print(e.stderr.decode())  # Decoding is often necessary as stderr is returned as bytes
+        raise e  # Optionally re-raise the exception if you want the script to halt here
     return output_video_path
+
+
 
 def main():
     st.title('Subtitle Generator')
@@ -102,17 +131,15 @@ def main():
             if st.button('Transcribe Video'):
                 with st.spinner('Extracting audio and transcribing...'):
                     audio_path = extract_audio_from_video(original_video_path)
-                    transcription_result = transcribe_audio(audio_path)  # This should return the SRT text directly
+                    transcription_result = transcribe_audio(audio_path)  
                     
-                    # Split subtitles to ensure each segment is within the character limit
-                    # Directly pass transcription_result assuming it's the SRT text
+
                     splitted_subtitles = split_subtitle_text(transcription_result)  
-                    st.session_state['subtitles'] = splitted_subtitles
+                    translated_subtitles = translate(splitted_subtitles)  # Translate subtitles to French
+                    st.session_state['subtitles'] = translated_subtitles
                     st.session_state['transcription_done'] = True
 
-                # Display video and subtitles side by side after transcription
 
-        # The rest of your main function here...
 
         if 'transcription_done' in st.session_state:
             col1, col2 = st.columns(2)
@@ -138,11 +165,10 @@ def main():
             if 'subtitles_embedded' in st.session_state and st.session_state['subtitles_embedded']:
                 st.video(st.session_state['result_video_path'])
                 with open(st.session_state['result_video_path'], "rb") as file:
-                    st.download_button('Download Video', file, file_name='video_with_subtitles.mp4')
+                    st.download_button(label='Download Video', data=file, file_name='video_with_subtitles.mp4', mime='video/mp4')
     else:
-        st.session_state.clear()  # Reset state if no video is uploaded
+        st.session_state.clear() 
         st.write("Upload a video and press 'Transcribe Video' to begin transcription.")
 
 if __name__ == "__main__":
     main()
-
