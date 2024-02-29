@@ -119,6 +119,61 @@ def embed_subtitles_in_video(video_path, subtitles):
 
 
 
+# def main():
+#     st.title('Subtitle Generator')
+
+#     uploaded_video = st.file_uploader("Choose a video...", type=['mp4', 'mov', 'avi', 'mkv'])
+#     if uploaded_video is not None:
+#         if 'original_video_path' not in st.session_state:
+#             video_file = NamedTemporaryFile(delete=False, suffix='.' + uploaded_video.name.split('.')[-1])
+#             video_file.write(uploaded_video.getvalue())
+#             video_file.close()
+#             st.session_state['original_video_path'] = video_file.name
+#         original_video_path = st.session_state['original_video_path']
+#         if 'transcription_done' not in st.session_state:
+#             if st.button('Transcribe Video'):
+#                 with st.spinner('Extracting audio and transcribing...'):
+#                     audio_path = extract_audio_from_video(original_video_path)
+#                     transcription_result = transcribe_audio(audio_path)  
+                    
+
+#                     splitted_subtitles = split_subtitle_text(transcription_result)  
+#                     translated_subtitles = translate(splitted_subtitles)  # Translate subtitles to French
+#                     st.session_state['subtitles'] = translated_subtitles
+#                     st.session_state['transcription_done'] = True
+
+
+
+#         if 'transcription_done' in st.session_state:
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 st.subheader("Video")
+#                 st.video(original_video_path)
+#             with col2:
+#                 st.subheader("Generated Subtitles")
+#                 st.session_state['edited_subtitles'] = st.text_area("Edit the subtitles here:", value=st.session_state['subtitles'], height=550)
+
+#             edited_subtitles = st.session_state.get('edited_subtitles', '')  # Ensure variable is defined
+#             if st.button('Save Edited Subtitles'):
+#                 with NamedTemporaryFile(delete=False, mode='w', suffix='.srt') as subtitle_file:
+#                     subtitle_file.write(edited_subtitles)
+#                     subtitle_file.close()
+#                     edited_subtitles_path = subtitle_file.name
+
+#                 with st.spinner('Embedding subtitles into video...'):
+#                     result_video_path = embed_subtitles_in_video(original_video_path, edited_subtitles_path)
+#                     st.session_state['result_video_path'] = result_video_path
+#                     st.session_state['subtitles_embedded'] = True
+
+#             if 'subtitles_embedded' in st.session_state and st.session_state['subtitles_embedded']:
+#                 st.video(st.session_state['result_video_path'])
+#                 with open(st.session_state['result_video_path'], "rb") as file:
+#                     st.download_button(label='Download Video', data=file, file_name='video_with_subtitles.mp4', mime='video/mp4')
+#     else:
+#         st.session_state.clear() 
+#         st.write("Upload a video and press 'Transcribe Video' to begin transcription.")
+
+
 def main():
     st.title('Subtitle Generator')
 
@@ -130,19 +185,17 @@ def main():
             video_file.close()
             st.session_state['original_video_path'] = video_file.name
         original_video_path = st.session_state['original_video_path']
+        
         if 'transcription_done' not in st.session_state:
             if st.button('Transcribe Video'):
                 with st.spinner('Extracting audio and transcribing...'):
                     audio_path = extract_audio_from_video(original_video_path)
-                    transcription_result = transcribe_audio(audio_path)  
-                    
+                    transcription_result = transcribe_audio(audio_path)
 
-                    splitted_subtitles = split_subtitle_text(transcription_result)  
+                    splitted_subtitles = split_subtitle_text(transcription_result)
                     translated_subtitles = translate(splitted_subtitles)  # Translate subtitles to French
                     st.session_state['subtitles'] = translated_subtitles
                     st.session_state['transcription_done'] = True
-
-
 
         if 'transcription_done' in st.session_state:
             col1, col2 = st.columns(2)
@@ -158,10 +211,10 @@ def main():
                 with NamedTemporaryFile(delete=False, mode='w', suffix='.srt') as subtitle_file:
                     subtitle_file.write(edited_subtitles)
                     subtitle_file.close()
-                    edited_subtitles_path = subtitle_file.name
+                    st.session_state['edited_subtitles_path'] = subtitle_file.name  # Store path for download
 
                 with st.spinner('Embedding subtitles into video...'):
-                    result_video_path = embed_subtitles_in_video(original_video_path, edited_subtitles_path)
+                    result_video_path = embed_subtitles_in_video(original_video_path, st.session_state['edited_subtitles_path'])
                     st.session_state['result_video_path'] = result_video_path
                     st.session_state['subtitles_embedded'] = True
 
@@ -169,6 +222,10 @@ def main():
                 st.video(st.session_state['result_video_path'])
                 with open(st.session_state['result_video_path'], "rb") as file:
                     st.download_button(label='Download Video', data=file, file_name='video_with_subtitles.mp4', mime='video/mp4')
+                
+                # Add download button for the .srt file
+                with open(st.session_state['edited_subtitles_path'], "rb") as srt_file:
+                    st.download_button(label='Download Subtitles (.srt)', data=srt_file, file_name='subtitles.srt', mime='text/plain')
     else:
         st.session_state.clear() 
         st.write("Upload a video and press 'Transcribe Video' to begin transcription.")
