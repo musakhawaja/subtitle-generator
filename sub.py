@@ -4,6 +4,7 @@ from openai import OpenAI
 import os
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
+from ffmpeg import Error as FFmpegError
 
 load_dotenv()
 
@@ -86,17 +87,20 @@ def translate(srt):
     result = completion.choices[0].message.content
     return result
 
-from ffmpeg import Error as FFmpegError
 
 
 def embed_subtitles_in_video(video_path, subtitles):
     output_video_path = NamedTemporaryFile(delete=False, suffix='.mp4').name
     style_options = (
         "FontName=verdana"
-        ",FontSize=10"
+        ",FontSize=12"
         ",PrimaryColour=&H00FFFFFF"
-        ",Bold=-1"
-        ",MarginV=40"
+        ",BorderStyle=1"  # Outline + drop shadow
+        ",Outline=0"  # Thin outline for clear definition
+        ",Shadow=1"  # Increased shadow for a shaded effect
+        ",BackColour=&H80000000"  # Optional: semi-transparent background for readability
+        ",Bold=-1"  # Bold text
+        ",MarginV=40" 
     )
     # fontfile_option = "fontfile=verdana.ttf"
     subtitles_filter = f"subtitles='{subtitles}':force_style='{style_options}'"
@@ -106,12 +110,11 @@ def embed_subtitles_in_video(video_path, subtitles):
             ffmpeg
             .input(video_path)
             .output(output_video_path, vf=subtitles_filter)
-            .run(overwrite_output=True, quiet=False)  # Set quiet=False to see the output in case there's no error
+            .run(overwrite_output=True, quiet=False)  
         )
     except FFmpegError as e:
         print("FFmpeg Error encountered:")
-        print(e.stderr.decode())  # Decoding is often necessary as stderr is returned as bytes
-        raise e  # Optionally re-raise the exception if you want the script to halt here
+
     return output_video_path
 
 
